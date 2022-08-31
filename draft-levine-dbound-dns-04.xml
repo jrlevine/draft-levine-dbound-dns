@@ -1,0 +1,586 @@
+<?xml version='1.0' encoding='utf-8'?>
+<!DOCTYPE rfc SYSTEM "rfc2629-xhtml.ent">
+<?xml-stylesheet type='text/xsl' href='rfc2629.xslt' ?>
+<?rfc compact="yes" ?>
+<?rfc subcompact="no" ?>
+<?rfc toc="yes" ?>
+<?rfc tocindent="yes" ?>
+<?rfc tocdepth="2" ?>
+<?rfc symrefs="yes" ?>
+<?rfc sortrefs="yes"?>
+<?rfc iprnotified="no" ?>
+<rfc xmlns:xi="http://www.w3.org/2001/XInclude" category="info" docName="draft-levine-dbound-dns-04" ipr="trust200902" obsoletes="" updates="" submissionType="IETF" xml:lang="en" tocInclude="true" tocDepth="2" symRefs="true" sortRefs="true" version="3">
+  <!-- xml2rfc v2v3 conversion 2.42.0 -->
+  <front>
+    <title abbrev="Org Boundaries">
+	Publishing Organization Boundaries in the DNS
+    </title>
+    <seriesInfo name="Internet-Draft" value="draft-levine-dbound-dns-04"/>
+    <author fullname="John Levine" initials="J." surname="Levine">
+      <organization>Taughannock Networks</organization>
+      <address>
+        <postal>
+          <street>PO Box 727</street>
+          <city>Trumansburg</city>
+          <code>14886</code>
+          <region>NY</region>
+        </postal>
+        <email>standards@taugh.com</email>
+        <uri>http://jl.ly</uri>
+      </address>
+    </author>
+    <date year="2020"/>
+    <area>Applications</area>
+    <keyword>DNS</keyword>
+    <keyword>cookies</keyword>
+    <keyword>e-mail</keyword>
+    <abstract>
+      <t>The organization that manages a subtree in the DNS is often different
+         from the one that manages the tree above it.  We describe an architecture to publish in the DNS
+         the boundaries between organizations that can be adapted to various
+         policy models and can be queried with a small number of DNS lookups.</t>
+    </abstract>
+  </front>
+  <middle>
+    <section numbered="true" toc="default">
+      <name>Introduction</name>
+      <t>Often, the organization that manages a subtree in the DNS is
+           different from the one that manages the tree above it.
+	   Many applications use information about such boundaries to
+           implement security policies.  For example, web browsers use them
+           to limit the names where HTTP cookies can be set, and
+	   Secure Socket Layer (SSL) certificate services use them to determine
+           the party responsible for the domain in a signing request.
+	   Mail security applications such as Domain-based Messaging
+           Authentication, Reporting and Conformance (DMARC) use them to locate
+	   an organization's policy records in the DNS.
+	   This specification is intended to provide boundaries usable for DMARC,
+	   and possibly for other applications.
+      </t>
+      <t>
+	[[Please direct discussion of this draft to the dbound working group
+	at dbound@ietf.org.]]
+      </t>
+    </section>
+    <section numbered="true" toc="default">
+      <name>Design Issues</name>
+      <t>Organization boundaries can be assigned on what one could
+	   call an opt-in or opt-out basis. "Opt-in" means that two names are only
+	   managed by the same organization if both actively assert that they are
+	   related.  "Opt-out" means that if there is any boundary information at
+           all for a DNS subtree, each name is assumed to be under the same
+           management as its parent unless there is a boundary assertion to the
+           contrary.  This design describes an opt-out model.</t>
+      <t>Within the opt-out model, this design can adapt to a variety of
+           scenarios:
+      </t>
+      <ul spacing="normal">
+        <li>Policies can be published by the domains themselves,
+			    or by a third party.  In the former case, each domain
+			    might assert its own boundary policies.  In the latter
+			    case, the third party makes the assertions, which may
+			    or may not agree with what the domains themselves
+ 			    would want.</li>
+        <li>Multiple levels of delegation may be implemented,
+			    which is different from irregular boundaries.  For
+			    example, "us", "ny.us", and "k12.ny.us" are
+			    irregular boundaries, because they're all handled by
+			    the US registry operator Neustar.
+			    CentralNIC's "uk.com" would be a second level of
+			    delegation below Verisign's com. </li>
+        <li>Different sets of boundary rules can be published for
+			    different applications.  For example, the boundaries
+			    for SSL certificates might be different from the
+			    boundaries for e-mail policies, or for HTTP cookie
+			    setting policies.</li>
+      </ul>
+      <t>In the lookup process below, the boundary point data is stored in
+	   the DNS tree in a TXT record.
+	   The boundary is considered to be directly below the name that the
+	   process returns, similarly to the names in the <xref target="PSL" format="default">PSL</xref>.
+	   If the process returned "abc.example", then "foo.abc.example" and
+	   "bar.abc.example" are separated by the boundary, but "foo.abc.example"
+	   and "bar.foo.abc.example" are not.
+      </t>
+      <t>Each domain can publish its own policies within its own domain name space,
+	      or a separate authority can publish a global set of policies in a separate
+	      name space.
+      </t>
+    </section>
+    <section numbered="true" toc="default">
+      <name>TXT record format</name>
+      <artwork name="" type="" align="left" alt=""><![CDATA[
+  *._bound.k12.ny.us IN TXT "bound=1" "." "." "k12.ny.us"]]></artwork>
+      <t>
+	   The bound TXT record contains at least four text strings: a tag, two keyword strings and a
+	   domain name. Strings beyond the fourth are ignored.
+      </t>
+      <t>
+	   The "bound=1" tag is to prevent confusion when a domain publishes a
+	   wildcard such as *.example.com that could match a _bound name. Records
+	   that do not start with the correct tag or that have fewer than four strings
+	   are ignored.
+      </t>
+      <t>
+	   Each keyword string is a series of comma separated keywords.
+	   If the string would otherwise be empty, it is a single dot.
+      </t>
+      <t>
+	   The first keyword string expresses policy options.
+	   It can include NOLOWER which means that
+	   no lower level boundaries can exist below this one, and NOBOUND
+	   which means that this name is not a boundary for this application.
+      </t>
+      <t>
+	   The second keyword string identifies the application(s) to
+	   which this boundary applies.
+	   The strings DMARC, COOKIE, and CERT mean that the applications re DMARC,
+	   HTTP cookies, and SSL certificate signing respectively; a dot means it
+	   is a default for any applications not otherwise specified.
+      </t>
+      <t>
+	   The domain name is an absolute domain name, without the final dot.
+	   The first label in the name may be "*" to indicate that the boundary is
+	   at any name one label deeper than the rest of the name.  That is, the
+	   asterisk matches a single label, not the usual DNS sense of matching
+	   any string of labels.
+      </t>
+    </section>
+    <section numbered="true" toc="default">
+      <name>Lookup Process</name>
+      <t>In general, the lookup process takes as input a domain name and application.
+	   It returns the name of the boundary node in the DNS.
+	   This may be the domain itself or a parent.
+	   If there is no policy for the domain the lookup fails; there are no
+           defaults, and the DNS root is not within any organization boundary.
+	   (Applications may apply defaults of their own, but that is beyond the
+           scope of this specification.)</t>
+      <t>Names of boundary information records
+	use the tag "_bound" which is intended to be unique.
+      </t>
+      <t>For the first lookup, the client extracts the top level component
+           (i.e., the rightmost label, as "label" is defined in Section 3 of
+           <xref target="RFC1034" format="default"/>)
+           of the domain name from the subcomponents, if any, and inserts the
+           prefix in front of that component, after other components if any.
+	   For example, if the domain to be checked is "example.com" or
+           "www.example.com", the client issues a DNS query for "example._bound.com"
+	   or "www.example._bound.com".
+	   If the domain is a dotless one such as "example", the client looks up "_bound.example".
+      </t>
+      <t>If the boundary information is published by a third party,
+	 the client appends the base name of the
+	 third party's domain to the name to be looked up.
+	 Then the client does a DNS lookup of TXT records at that name,
+	   which will return zero or more TXT records.
+	   A failure such as NXDOMAIN is considered to return zero records.
+	   A lookup can return multiple records if different applications have
+	   different boundaries or policy options.
+	   The lookup process discards any records that do not start with "bound=1"
+	   or contain less than four strings.
+      </t>
+      <t>
+	   If a relevant policy record is returned, and the record does not contain
+	   the NOBOUND keyword, the domain name in
+	   the record is the policy boundary.
+	   A policy record is relevant if it lists the desired application, or
+	   it is a default policy and there is no record with the application's keyword.
+	   For example, a check for a boundary
+           above "example.com" would be issued at "example._bound.com", and the
+           expected TXT record could be "bound=1 . . com".</t>
+      <t>If there are no boundaries at all in a TLD, the policy record
+           contains "bound=1" "."  "." "." indicating the root.  For example, if all subdomains
+           of the "example" top-level domain (TLD) are under the same management
+           as the TLD itself, checks for "_bound.example" or "www._bound.example"
+	   would return "bound=1" "." "." ".". </t>
+      <t>If the relevant record has the NOLOWER keyword set, the process stops.
+	   Otherwise, the
+	   client inserts the prefix tag into the name just below
+           (i.e., to the left of) the name at the largest matching boundary
+           indicated in the lookup result, and repeats the lookup.  For example:
+      </t>
+      <ul spacing="normal">
+        <li> When evaluating "www.foo.example.com", the first query
+                    would be to "www.foo.example._bound.com".  If the reply to this is
+		    "bound=1 . . com",
+                    then the second query would be to "www.foo._bound.example.com".
+	</li>
+        <li> When evaluating "www.example.ny.us", the first query would be
+                    to "www.example.ny._bound.us".  If the reply to this is
+                    "bound=1" "." "." "us", the next lookup would be to
+                    "www.example._bound.ny.us".
+		    If it returned "bound=1 "." "." "ny.us", the third lookup
+		    would be to "www._bound.foo.ny.us".
+	</li>
+      </ul>
+      <t>This process repeats until a DNS lookup returns a relevant record with
+	   the NOLOWER keyword, or a lookup returns no relevant records,
+           at which point the boundary is the domain name in the
+	   last retrieved relevant record.</t>
+      <t>If an otherwise relevant record has the NOBOUND keyword, the process
+	   continues if the NOLOWER keyword is not present, but there is no boundary
+	   at the name with the NOBOUND keyword.
+	   These NOBOUND keyword enables a name in the hierarchy to be a boundary for some
+	   applications but not for others.
+      </t>
+      <t>
+	 If the domain name in a boundary record starts with a *, e.g., "*.example", the client
+	 replaces the * with the corresponding element of the domain being matched.  If
+	 the domain were "www.test.example", the boundary record domain would be treated as
+	 though it were "test.example".
+      </t>
+    </section>
+    <section numbered="true" toc="default">
+      <name>DNS Records</name>
+      <t>The publishing entity uses wildcards and prefixed names that parallel the regular
+           names under a TLD to cover the domain's name space.</t>
+      <t>If there is a boundary at a given name, an entry in the TLD record
+        covers the names below it.  For example, if there is a boundary
+	at ".TEST", a suitable record would be:</t>
+      <artwork name="" type="" align="left" alt=""><![CDATA[
+  *._bound.test IN TXT "bound= "." "." "test"]]></artwork>
+      <t> If the boundary is above the TEST domain, i.e., TEST is under the same
+         management as FOO.TEST, the record would indicate no boundaries, and an
+	 additional non-wildcard record is needed to cover TEST itself:</t>
+      <artwork name="" type="" align="left" alt=""><![CDATA[
+  *._bound.test IN TXT "bound=1 "." "." "."
+  _bound.test   IN TXT "bound=1 "." "." "."]]></artwork>
+      <t> In domains with irregular policy boundaries, multiple records in the
+          record describe the boundary points.  For example, in the US (United States)
+          TLD, there are legacy domains under XX.US where XX is a two-letter
+	  state abbreviation, and there are some further points such as "k12" for
+	  schools within a state, with a boundary such as
+          such as "k12.ny.us".  A suitable set of of records can cover
+          this structure.
+	  The closest encloser rule in <xref target="RFC4592" format="default">RFC 4592</xref> makes
+	  the wildcards match the appropriate names.
+      </t>
+      <artwork name="" type="" align="left" alt=""><![CDATA[
+*._bound.us            IN TXT "bound=1 "." "." "us"
+*._bound.ny.us         IN TXT "bound=1 "." "." "ny.us"
+*._bound.k12.ny.us     IN TXT "bound=1 "." "." "k12.ny.us"]]></artwork>
+      <t>In the usual case that only the boundary closest to the looked up domain name
+	 is of interest, the publishing entity can publish "shadow" wildcard records
+	 for lower level boundaries 
+	 that are used rather than the higher level records for names below those boundaries:
+      </t>
+	       <artwork name="" type="" align="left" alt=""><![CDATA[
+*.ny._bound.us         IN TXT "bound=1 "." "." "ny.us"
+*.k12.ny._bound.us     IN TXT "bound=1 "." "." "k12.ny.us"]]></artwork>
+
+   <t>[TBD: What if anything to put at the shadow point?  Currently if you look up
+      "k12.ny._bound.us" you'll get nothing because it's an ENT.  Is that OK?  If not
+      should it point to ny.us or k12.ny.us? ]
+   </t>
+
+   <t>In some cases, a domain may assert that every name below a given name is
+	   a boundary, or that every name other than a specific set of exceptions is
+	   a boundary.  For example (adapted from the Mozilla PSL) every name below
+	   kobe.jp is a boundary other than city.kobe.jp.  This could be expressed as:
+      </t>
+      <artwork name="" type="" align="left" alt=""><![CDATA[
+*.kobe._bound.jp       IN TXT "bound=1 . . *.kobe.jp"
+city.kobe._bound.jp    IN TXT "bound=1 NOBOUND . city.kobe.jp"
+*.city.kobe._bound.jp  IN TXT "bound=1 NOBOUND . city.kobe.jp"]]></artwork>
+      <t> For any set of policy boundaries in a tree of DNS names,
+	 a suitable set of policy records can describe the boundaries,
+	 so a client can find the boundary for any name in the tree with a
+         single policy lookup per level of delegation. </t>
+      <t> Since the delegation structure is unlikely to change 
+          frequently, long time-to-live (TTL) values in the TXT
+	  records are appropriate.</t>
+      <t>
+	  If different applications have different boundaries or policy options,
+	  the policy records
+	  for each application are put at the appropriate names for the boundaries.
+	  Due to the way DNS wildcards work, each name with any policy records MUST
+	  have records for all policies, with the NOBOUND bit for policies for which
+	  the name is not in fact a boundary.
+      </t>
+    </section>
+    <section numbered="true" toc="default">
+      <name>Application scenarios</name>
+      <t>Here are some ways that DMARC and potentially other applications can use BOUND data.</t>
+      <section numbered="true" toc="default">
+        <name>DMARC</name>
+        <t>If a DMARC lookup for the domain in a message's From: header fails,
+	      the client would do a boundary check for the domain name using
+	      the "DMARC" application.
+	      The organizational domain is the immediate subdomain of the boundary
+	      domain.  (Note that the boundary will always be the one looked up
+	      or an ancestor.)
+        </t>
+      </section>
+      <section numbered="true" toc="default">
+        <name>Cookies</name>
+        <t>If an http request attempts to set a cookie for a domain other
+	      than the request's own domain, the client would do boundary check
+	      for a "cookie" application for both the request's domain and the cookie
+	      domain. If they are not separated by a boundary, the request is allowed.
+        </t>
+      </section>
+      <section numbered="true" toc="default">
+        <name>SSL Certificates</name>
+        <t>The client would do a boundary check for the domain name in a
+	      normal certificate, or the name after the "*." in a wildcard
+	      certificate for a "cert" application.
+	      If the boundary is above the name, the name is allowed.
+        </t>
+      </section>
+    </section>
+    <section numbered="true" toc="default">
+      <name>Discussion</name>
+      <t>The total number of DNS lookups is no more than the number of levels of boundary
+	   delegation, plus one if the last boundary doesn't have the NOLOWER keyword.
+	   That is unlikely to be more than 2 or 3 in realistic scenarios, and
+	   depends on the number of boundaries, not the number of components in
+	   the names that are looked up.
+	   With shadow records, it will typically be one lookup that matches a shadow record
+	   and a second to check below it that gets NXDOMAIN if the shadow record doesn't
+	   contain NOLOWER.
+      </t>
+      <t>Some domains have very irregular boundaries.
+	 This may require a relatively large number of records to describe all the boundaries,
+	 but it doesn't seem like a number that would challenge
+	 modern DNS servers, or need unduly complex scripts to create them.
+	 A mechanical translation of the boundary information the Mozilla PSL as of April 2020
+	 creates about 16,000 records.
+      </t>
+      <t>The wildcard lookup means that each time an application looks up the boundaries
+	 for a hostname, the lookup results create DNS cache entries that will not be reused
+	 other than for subsequent lookups for the identical hostname.
+	 This might cause cache churn, but it seems at worst no more than we already
+	 tolerate from DNSBL lookups.
+	 If the boundary zone is signed, DNS caches should be able to syntheize some answers
+	 from cached woldcards.
+      </t>
+    </section>
+    <section numbered="true" toc="default">
+      <name>ABNF syntax of bound records</name>
+      <t>The syntax of bound records is something like this:
+      </t>
+      <artwork name="" type="" align="left" alt=""><![CDATA[
+; each token in BOUND is a separate string in the TXT record
+
+BOUND = BTAG BFLAGS BKWDS DOMAIN
+
+BTAG = %s"bound=1"
+
+BFLAGS = ( BFLAG *("," BFLAG) ) / "."
+
+BFLAG = s%"NOLOWER" / s%"NOBOUND" / MISCTOK
+
+BKWDS = ( BKWD *("," BKWD) ) / "."
+
+BKWD  = s%"DMARC" / s%"COOKIE" / s%"CERT" / MISCTOK
+
+; miscellaneous tokens for future expansion
+
+MISCTOK = `1*ALPHA]]></artwork>
+    </section>
+    <section numbered="true" toc="default">
+      <name>Security Considerations</name>
+      <t>The purpose of publishing organization boundaries is to provide
+           advice to third parties that wish to know whether two names are
+           managed by the same organization, allowing those names to 
+	   be treated "as the same" in some sense.  Clients that rely on
+           published boundaries are outsourcing some part of their own
+	   security policy to the publisher, so their own security depends on
+           the publisher's boundaries being accurate. </t>
+      <t>Although in some sense domains are always in control of their
+           subdomains, there are many situations in which parent domains are
+           not expected to influence subdomains.  For example, second
+	   level domains in
+	   global TLDs (gTLDs) operated by registries with contracts with
+	   the Internet Corporation for Assigned Names and Numers (ICANN)
+	   Since there is no technical bar to a parent publishing records
+           that shadow part or all of the boundary record namespace for
+           delegated subdomains, correct operation depends on
+	   the parent and subdomains agreeing about who publishes what. </t>
+      <t>The DNS is subject to a variety of attacks. DBOUND records
+	   are subject to the same ones as any other bit of the DNS, and
+	   the same countermeasures, such as using DNSSEC, apply.
+      </t>
+    </section>
+    <section numbered="true" toc="default">
+      <name>Variations</name>
+      <t>
+	   Some boundary schemes distinguish between public and private subtrees.
+	   If that were useful, a PUBLIC flag keyword could indicate that the subtrees
+	   below a boundary were public rather than the default of private.
+      </t>
+      <t>Since nothing but the boundary records should be published at names with _bound
+	   components, one could get the same effect with a new DBOUND RRTYPE, which would
+	   avoid the problem of confusion with other TXT wildcards.
+      </t>
+      <t>If third parties want to publish boundary information, they can
+	   do it in their own subtree of the DNS. For example,
+	   if policy.example were publishing boundary information about
+	   boundaries, the records for the test domain described above would be:
+      </t>
+      <artwork name="" type="" align="left" alt=""><![CDATA[
+  *._bound.test.policy.exaple IN TXT "bound=1" "." "." "."
+  _bound.test.policy.example  IN TXT "bound=1" "." "." "."]]></artwork>
+    </section>
+    <section numbered="true" toc="default">
+      <name>IANA considerations</name>
+      <t>IANA is requested to add this entry to the
+	  "Underscored and Globally Scoped DNS Node Names" Registry.
+      </t>
+      <table anchor="boundtagreg" align="center">
+        <thead>
+          <tr>
+            <th align="center">RR Type</th>
+            <th align="left">_NODE NAME</th>
+            <th align="left">Reference</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td align="center">TXT</td>
+            <td align="left">_bound</td>
+            <td align="left">(this document)</td>
+          </tr>
+        </tbody>
+      </table>
+      <t>This document requests that IANA create a registry of dbound Flag keywords.
+	 Its registration policy is IETF Review.
+	 Its initial contents are as follows.
+      [[NOTE: new flags are likely to change the lookup algorithm]]</t>
+      <table anchor="boundflagreg" align="center">
+        <name>BOUND Flag Keywords Initial Values</name>
+        <thead>
+          <tr>
+            <th align="center">Keyword</th>
+            <th align="left">Reference</th>
+            <th align="left">Description</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td align="center">NOLOWER</td>
+            <td align="left">(this document)</td>
+            <td align="left">No lower level policies</td>
+          </tr>
+          <tr>
+            <td align="center">NOBOUND</td>
+            <td align="left">(this document)</td>
+            <td align="left">No boundary at this name</td>
+          </tr>
+        </tbody>
+      </table>
+      <t>This document requests that IANA create a registry of BOUND Application keywords.
+	 Its registration policy is First Come First Served.
+	 Its initial contents are as follows.
+      [[Note: New applications don't affect the lookup process, and shouldn't
+      affect existing applications.]]</t>
+      <table anchor="boundappreg" align="center">
+        <name>BOUND Applications Initial Values</name>
+        <thead>
+          <tr>
+            <th align="center">Value</th>
+            <th align="left">Reference</th>
+            <th align="left">Description</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td align="center">. (Any)</td>
+            <td align="left">(this document)</td>
+            <td align="left">Any application without a specific boundary record</td>
+          </tr>
+          <tr>
+            <td align="center">DMARC</td>
+            <td align="left">(this document)</td>
+            <td align="left">DMARC organizational domains</td>
+          </tr>
+          <tr>
+            <td align="center">COOKIE</td>
+            <td align="left">(this document)</td>
+            <td align="left">HTTP cookies</td>
+          </tr>
+          <tr>
+            <td align="center">CERT</td>
+            <td align="left">(this document)</td>
+            <td align="left">Owner of certificate requests</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+  </middle>
+  <back>
+    <references>
+      <name>References</name>
+      <references>
+        <name>Normative References</name>
+        <reference anchor="RFC1034" target="https://www.rfc-editor.org/info/rfc1034" xml:base="https://www.rfc-editor.org/refs/bibxml/reference.RFC.1034.xml">
+          <front>
+            <title>Domain names - concepts and facilities</title>
+            <seriesInfo name="DOI" value="10.17487/RFC1034"/>
+            <seriesInfo name="RFC" value="1034"/>
+            <seriesInfo name="STD" value="13"/>
+            <author initials="P.V." surname="Mockapetris" fullname="P.V. Mockapetris">
+              <organization/>
+            </author>
+            <date year="1987" month="November"/>
+            <abstract>
+              <t>This RFC is the revised basic definition of The Domain Name System.  It obsoletes RFC-882.  This memo describes the domain style names and their used for host address look up and electronic mail forwarding.  It discusses the clients and servers in the domain name system and the protocol used between them.</t>
+            </abstract>
+          </front>
+        </reference>
+        <reference anchor="RFC4592" target="https://www.rfc-editor.org/info/rfc4592" xml:base="https://www.rfc-editor.org/refs/bibxml/reference.RFC.4592.xml">
+          <front>
+            <title>The Role of Wildcards in the Domain Name System</title>
+            <seriesInfo name="DOI" value="10.17487/RFC4592"/>
+            <seriesInfo name="RFC" value="4592"/>
+            <author initials="E." surname="Lewis" fullname="E. Lewis">
+              <organization/>
+            </author>
+            <date year="2006" month="July"/>
+            <abstract>
+              <t>This is an update to the wildcard definition of RFC 1034.  The interaction with wildcards and CNAME is changed, an error condition is removed, and the words defining some concepts central to wildcards are changed.  The overall goal is not to change wildcards, but to refine the definition of RFC 1034.  [STANDARDS-TRACK]</t>
+            </abstract>
+          </front>
+        </reference>
+      </references>
+      <references>
+        <name>Informative References</name>
+        <reference anchor="PSL">
+          <front>
+            <title>Public Suffix List</title>
+            <author>
+              <organization>Mozilla Foundation</organization>
+              <address>
+                <uri>https://publicsuffix.org/</uri>
+              </address>
+            </author>
+            <date month="Nov" year="2015"/>
+          </front>
+        </reference>
+      </references>
+    </references>
+    <section numbered="true" toc="default">
+      <name>Change Log</name>
+      <t><strong>NOTE TO RFC EDITOR: This section may be removed
+	   upon publication of this document as an RFC.</strong></t>
+      <dl newline="false" spacing="normal">
+        <dt>03 to -04</dt>
+        <dd>Make TXT fields separate strings, add shadow records, update ABND
+		</dd>
+        <dt>02 to -03</dt>
+        <dd>Add wildcard labels like in the PSL.
+		</dd>
+        <dt>01 to -02</dt>
+        <dd>Make TXT record the proposal, new RR as alternative.
+	     </dd>
+        <dt>-00 to -01</dt>
+        <dd>Editorial changes to limit standard use to DMARC.
+	   </dd>
+        <dt>non-WG to -00</dt>
+        <dd>Add NOBOUND record to make wildcard matches do the right thing</dd>
+        <dt/>
+        <dd>Rename to match WG name</dd>
+      </dl>
+    </section>
+  </back>
+</rfc>
