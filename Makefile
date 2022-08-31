@@ -1,6 +1,6 @@
 # ietf drafts
 
-VERSION=06
+VERSION=07
 
 D=draft-levine-dbound-dns-${VERSION}.txt
 
