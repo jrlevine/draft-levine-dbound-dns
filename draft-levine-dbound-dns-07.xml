@@ -85,7 +85,7 @@
 	   and "bar.foo.abc.example" are not.
       </t>
       <t>Each domain can publish its own policies within its own domain name space,
-	      or a separate authority can publish a global set of policies in a separate
+	      or a separate third-party can publish a global set of policies in a separate
 	      name space.
       </t>
       <section><name>Non-goals</name>
@@ -95,7 +95,7 @@
 	    For example, if there is a boundary between "com" and "example.com", but
 	    no boundary between "example.com" and "www.example.com", that indicates
 	    that "com" is one organization, while "example.com" and "www.example.com"
-	    are a different organization.
+	    are a different (but single) organization.
 	 </t>
 	 <t>
 	    While it may well be useful to indicate that "example.com" and "example.net"
@@ -115,14 +115,14 @@
       <artwork name="" type="" align="left" alt=""><![CDATA[
   *._bound.k12.ny.us IN TXT bound=1 . . k12.ny.us]]></artwork>
       <t>
-	   The bound TXT record contains at least four text strings: a tag, two keyword strings and a
+	   The TXT record contains at least four text strings: a tag, two keyword strings and a
 	   domain name. Strings beyond the fourth are ignored.
-	   Unlike in some other specification, the string boundaries are signficant.
+	   The string boundaries are signficant.
       </t>
       <t>
 	   The "bound=1" tag is to prevent confusion when a domain publishes a
 	   wildcard such as *.example.com that could match a _bound name. Records
-	   that do not start with the correct tag or that have fewer than four strings
+	   that do not start with the correct tag, or that have fewer than four strings,
 	   are ignored.
       </t>
       <t>
@@ -155,7 +155,7 @@
       <t>In general, the lookup process takes as input a domain name and application.
 	   It returns the name of the boundary node in the DNS.
 	   This may be the domain itself or a parent.
-	   If there is no policy for the domain the lookup fails; there are no
+	   If there is no policy for the domain, the lookup fails; there are no
            defaults, and the DNS root is not within any organization boundary.
 	   (Applications may apply defaults of their own, but that is beyond the
            scope of this specification.)</t>
@@ -238,7 +238,7 @@
       <name>DNS Records</name>
       <t>The publishing entity uses wildcards and prefixed names that parallel the regular
            names under a TLD to cover the domain's name space.</t>
-      <t>If there is a boundary at a given name, an entry in the TLD record
+      <t>If there is a boundary at a given SLD, an entry in the TLD record
         covers the names below it.  For example, if there is a boundary
 	at ".TEST", a suitable record would be:</t>
       <artwork name="" type="" align="left" alt=""><![CDATA[
@@ -299,14 +299,14 @@ city.kobe._bound.jp    IN TXT bound=1 NOBOUND . city.kobe.jp
 	  If different applications have different boundaries or policy options,
 	  the policy records
 	  for each application are put at the appropriate names for the boundaries.
-a	  Due to the way DNS wildcards work, each name with any policy records <bcp14>MUST</bcp14>
+	  Due to the way DNS wildcards work, each name with any policy records <bcp14>MUST</bcp14>
 	  have records for all policies, with the NOBOUND bit for policies for which
 	  the name is not in fact a boundary.
       </t>
     </section>
     <section numbered="true" toc="default">
       <name>Application scenarios</name>
-      <t>Here are some ways that DMARC and potentially other applications can use BOUND data.</t>
+      <t>Here are some ways that other applications can use BOUND data.</t>
       <section numbered="true" toc="default">
         <name>DMARC</name>
         <t>If a DMARC lookup for the domain in a message's From: header fails,
@@ -319,7 +319,7 @@ a	  Due to the way DNS wildcards work, each name with any policy records <bcp14>
       </section>
       <section numbered="true" toc="default">
         <name>Cookies</name>
-        <t>If an http request attempts to set a cookie for a domain other
+        <t>If an HTTP request attempts to set a cookie for a domain other
 	      than the request's own domain, the client would do boundary check
 	      for a "cookie" application for both the request's domain and the cookie
 	      domain. If they are not separated by a boundary, the request is allowed.
@@ -349,7 +349,7 @@ a	  Due to the way DNS wildcards work, each name with any policy records <bcp14>
 	 This may require a relatively large number of records to describe all the boundaries,
 	 but it doesn't seem like a number that would challenge
 	 modern DNS servers, or need unduly complex scripts to create them.
-n	 A mechanical translation of the boundary information the Mozilla PSL as of August 2022
+	 A mechanical translation of the boundary information the Mozilla PSL as of August 2022
 	 creates about 17,000 records.
       </t>
       <t>The wildcard lookup means that each time an application looks up the boundaries
@@ -398,7 +398,7 @@ MISCTOK = `1*ALPHA]]></artwork>
            not expected to influence subdomains.  For example, second
 	   level domains in
 	   global TLDs (gTLDs) operated by registries with contracts with
-	   the Internet Corporation for Assigned Names and Numers (ICANN)
+	   the Internet Corporation for Assigned Names and Numers (ICANN).
 	   Since there is no technical bar to a parent publishing records
            that shadow part or all of the boundary record namespace for
            delegated subdomains, correct operation depends on
@@ -412,7 +412,7 @@ MISCTOK = `1*ALPHA]]></artwork>
       <name>Variations</name>
       <t>
 	   Some boundary schemes distinguish between public and private subtrees.
-	   If that were useful, a PUBLIC flag keyword could indicate that the subtrees
+	   If that were useful, a future PUBLIC flag keyword could indicate that the subtrees
 	   below a boundary were public rather than the default of private.
       </t>
       <t>Since nothing but the boundary records should be published at names with _bound
