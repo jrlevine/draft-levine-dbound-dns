@@ -129,6 +129,7 @@
       <t>
 	   Each keyword field is a series of comma separated keywords.
 	   If the field would otherwise be empty, it is a single dot.
+	   The keywords are listed in <xref target="iana">IANA registries</xref>.
       </t>
       <t>
 	   The first keyword field expresses policy options.
@@ -153,7 +154,7 @@
 	   It returns the name of the boundary node in the DNS.
 	   This may be the domain itself or a parent.
 	   If there is no policy for the domain the lookup fails; there are no
-           defaults, and the DNS root is not within any organization boundary.
+           default boundaries.
 	   (Applications may apply defaults of their own, but that is beyond the
            scope of this specification.)</t>
       <t>Names of boundary information records
@@ -169,10 +170,7 @@
 	   or "www.example._bound.com".
 	   If the domain is a dotless one such as "example", the client looks up "_bound.example".
       </t>
-      <t>If the boundary information is published by a third party,
-	 the client appends the base name of the
-	 third party's domain to the name to be looked up.
-	 Then the client does a DNS lookup of TXT records at that name,
+      <t>Then the client does a DNS lookup of TXT records at that name,
 	   which will return zero or more TXT records.
 	   A failure such as NXDOMAIN is considered to return zero records.
 	   A lookup can return multiple records if different applications have
@@ -211,7 +209,7 @@
                     "bound=1" . . us", the next lookup would be to
                     www.example._bound.ny.us.
 		    If it returned "bound=1 . . ny.us", the third lookup
-		    would be to www._bound.foo.ny.us.
+		    would be to www._bound.example.ny.us.
 	</li>
       </ul>
       <t>This process repeats until a DNS lookup returns a relevant record with
@@ -269,7 +267,7 @@ k12.ny._bound.us       IN TXT "bound=1 . . k12.ny.us"]]></artwork>
 
       <t>Each shadow record also needs to be matched by a similar record without the wildcard,
 	 since the non-wildcard name would otherwise be an empty non-terminal which 
-	 wildcard lookups don't match, and lookups would return nothing at all.
+	 wildcard lookups don't match, so a lookup for that name would return nothing at all.
       </t>
 
       <t> For any set of policy boundaries in a tree of DNS names,
@@ -287,11 +285,11 @@ k12.ny._bound.us       IN TXT "bound=1 . . k12.ny.us"]]></artwork>
 	  have records for all policies, with the NOBOUND bit for policies for which
 	  the name is not in fact a boundary.
 	  If this is the lowest boundary in the DNS subtree, all of the records have NOLOWER.
-	  In the example below, there is a boundary at abc.example.com for every application
-	  except DMARC.
+	  In the example below, there is a boundary at abc.example.com for DMARC but
+	  not for any other application.
       </t>
       <artwork name="" type="" align="left" alt=""><![CDATA[
-*._bound.abc.example.com IN TXT "bound=1 NOBOUND DMARC abc.example.com"
+*._bound.abc.example.com IN TXT "bound=1 . DMARC abc.example.com"
 *._bound.abc.example.com IN TXT "bound=1 NOBOUND . abc.example.com"]]></artwork>
     </section>
     <section numbered="true" toc="default">
@@ -415,7 +413,11 @@ MISCTOK = `1*ALPHA]]></artwork>
 	   would not apply.
       </t>
       <t>If third parties want to publish boundary information, they can
-	   do it in their own subtree of the DNS. For example,
+	 do it in their own subtree of the DNS.
+	 If the boundary information is published by a third party,
+	 the client appends the base name of the
+	 third party's domain to the name to be looked up.
+	 For example,
 	   if policy.example were publishing boundary information about
 	   boundaries, the records for the test domain described above would be:
       </t>
@@ -439,7 +441,7 @@ MISCTOK = `1*ALPHA]]></artwork>
 	 though it were "test.example".
       </t>
     </section>
-    <section numbered="true" toc="default">
+    <section numbered="true" toc="default" anchor="iana">
       <name>IANA considerations</name>
       <t>IANA is requested to add this entry to the
 	  "Underscored and Globally Scoped DNS Node Names" Registry.
@@ -589,7 +591,8 @@ MISCTOK = `1*ALPHA]]></artwork>
 	   upon publication of this document as an RFC.</strong></t>
       <dl newline="false" spacing="normal">
         <dt>06 to -07</dt>
-	<dd>Put the four fields into one TXT string. Move the PSL * stuff to a variation.
+	<dd>Put the four fields into one TXT string. Move third party publishing and
+	   the PSL * stuff to a variation.
 	Add few examples.</dd>
         <dt>05 to -06</dt>
         <dd>Editorial changes, add non-goals</dd>
